@@ -1,0 +1,259 @@
+7.1
+New changes
+تغییرات جدید
+
+7.09
+bug fixed
+اصلاح اتصال
+
+6.99
+New changes
+تغییرات جدید
+
+6.98
+bug fixed
+اصلاح اتصال
+
+6.88
+New changes
+تغییرات جدید
+
+6.87
+New changes
+تغییرات جدید
+
+6.86
+bug fix
+اصلاحات جزئی
+
+6.76
+New changes
+تغییرات جدید
+
+6.71
+bug fixed
+اصلاح برخی مشکلات
+
+6.61
+New changes
+تغییرات جدید
+
+6.6
+New changes
+تغییرات جدید
+
+6.59
+minor bug fix
+اصلاحات جزئی
+
+6.48
+some changes
+اصلاح زاویه دریچه گاز
+
+6.38
+New changes
+تغییرات جدید
+
+6.37
+remove manifold
+حذف منیفولد
+
+6.27
+New changes
+تغییرات جدید
+
+6.26
+New changes
+تغییرات جدید
+
+6.23
+some changes
+برخی تغییرات
+
+6.13
+New changes
+تغییرات جدید
+
+6.12
+some changes
+برخی تغییرات
+
+6.02
+some changes
+برخی تغییرات
+
+5.92
+New changes
+تغییرات جدید
+
+5.91
+New changes
+تغییرات جدید
+
+5.9
+New changes
+تغییرات جدید
+
+5.89
+New changes
+تغییرات جدید
+
+5.88
+Test
+تست
+
+5.78
+New changes
+تغییرات جدید
+
+5.77
+Test
+تست
+
+5.67
+New changes
+تغییرات جدید
+
+5.66
+New changes
+تغییرات جدید
+
+5.65
+New changes
+تغییرات جدید
+
+5.64
+New changes
+تغییرات جدید
+
+5.63
+New changes
+تغییرات جدید
+
+5.62
+New changes
+تغییرات جدید
+
+5.61
+New changes
+تغییرات جدید
+
+5.6
+New changes
+تغییرات جدید
+
+5.59
+New changes
+تغییرات جدید
+
+5.58
+some changes
+برخی تغییرات
+
+5.48
+some changes
+برخی تغییرات
+
+5.38
+New changes
+تغییرات جدید
+
+5.37
+remove manifold
+حذف منیفولد
+
+5.27
+New changes
+تغییرات جدید
+
+5.26
+Test
+تست
+
+5.16
+Sixth Release
+ششمین ریلیز
+
+5.06
+Fifth release
+پنجمین ریلیز مهندسی
+
+4.96
+Forth Release
+چهارمین ریلیز مهندسی
+
+4.86
+some changes
+برخی تغییرات
+
+4.76
+some changes
+برخی تغییرات
+
+4.66
+some changes
+برخی تغییرات
+
+4.56
+changes
+برخی تغییرات
+
+4.46
+some changes
+برخی تغییرات
+
+4.36
+t
+تست
+
+4.26
+New changes
+تغییرات جدید
+
+4.25
+New changes
+تغییرات جدید
+
+4.24
+Test
+تست
+
+4.14
+s
+s
+
+4.04
+New changes
+تغییرات جدید
+
+4.03
+New changes
+تغییرات جدید
+
+4.02
+second release
+دومین ریلیز
+
+4.00
+second release
+دومین ریلیز
+
+3.52
+Third Release
+سومین ریلیز
+
+3.50
+second release
+دومین ریلیز
+
+3.20
+First Release
+اولین ریلیز
+
+3.10
+First Release
+اولین انتشار
+
+3.09
+Second Release
+دومین ریلیز

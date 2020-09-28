@@ -1,0 +1,1039 @@
+/* WARNING: Auto generated file. Do not modify. */
+/*  Siemens Petrol Euro 2 */
+#pragma once
+#include "ECU.h"
+#include "ECU_define.h"
+#include "ECU_helper.h"
+#include "stdio.h"
+
+char old_buf[512];
+int m_counter_fault;
+
+extern CMD_STRUCTURE m_CmdStruct;
+extern SCHEDULER_INPUT_MANAGEMENT m_Scheduler_Buffer;
+extern unsigned char ecuStatusProgrammed[5];
+extern volatile uint8_t m_ConnectionStatus;
+#define INDEX_7F /*Enter ECU 7F index here*/
+
+void check_7f(uint8_t * buf)
+{
+ 		if(m_frmBank[0].frm[INDEX_7F] == 0x7f)
+		{
+				sprintf(buf, "NaN");
+		}
+}
+
+char AnalyzeTheActuatorResults(char * res)
+{
+  char condition = 0;
+    if(m_frmBank[0].frm[INDEX_7F] == 0x7f)
+  {
+    //report the errors!!!
+    if(m_frmBank[0].frm[INDEX_7F+2] == 0x22)
+    {
+      condition = 2;
+    }
+   else
+    {
+      condition = 3;
+    }
+  }
+  else
+  {
+    condition = 0;
+  }
+  
+  return condition;
+}
+
+void GeneralFunctionRunnerProcedure(void)
+{
+ return;
+}
+
+/* frames 3e */
+void task_standby(char * input,int num) {
+GeneralStandbyProcedure();
+}
+
+/* frames 81 */
+void task_connect(char * input,int num) {
+GeneralConnectProcedure();
+}
+
+/* frames 82 */
+void task_disconnect(char * input,int num) {
+GeneralDisconnectProcedure();
+}
+
+/* frames 14,00,00 */
+void task_faultClean(char * input,int num) {
+char res = 0;
+ char return_value;
+ char ret_frame[3];
+  //res = RunTheSpecificTask(&task[STANDBY]);
+	
+ taskDiagRAM tskHelper;
+ taskDiagRAM * tskPointer = &tskHelper;
+	
+  ConvertTask(task[FAULT_ERASE], tskPointer);
+  
+  res = m_CurrentProf->protocol_solver->SendAndRecieveFrame(m_CurrentProf->spect,
+                                                                tskPointer->frmFormat[0].frm, 
+                                                                tskPointer->frmFormat[0].frm_size,0);
+
+//if error								
+if(m_frmBank[0].frm[INDEX_7F] == 0x7f)
+  {
+    //report the errors!!!
+    if(m_frmBank[0].frm[INDEX_7F+2] == 0x22)
+    {
+			//emkan pak kardan khata nist, motor roshan ast
+      ret_frame[0] = 1;
+    }
+		else
+    {
+      //emkan pak kardan khata nist, sayer
+			ret_frame[0] = 2;
+    }
+  }
+	else //OK
+  {
+     ret_frame[0] = 0;
+  }
+	
+  return_value = m_CurrentProf->protocol_solver->CheckTheResultsAndPerformAction(res);
+	
+	//SetTheECUToSpecificState(STANDBY);
+	m_Scheduler_Buffer.CMD = CMD2_TASK_DATA_FAULTS;
+	
+	
+//now send the results :
+  SendGeneralFrame(ret_frame, 1, CMD1_TASK_DATA, CMD2_TASK_DATA_ERASEFAULT, 0, 0);
+delay_ms(300);
+}
+
+/* frames 21,01 */
+void task_parameter_2101(char * input,int num) {
+	uint8_t index_buffer_i = 0;
+	uint8_t * buf = 0;
+	uint8_t enable_or_disable = 0;
+	uint8_t exceptional_value = 0;
+
+	/* Battery Voltage */
+	if(checkIdInArray(PARAM_34711))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float battery_voltage = (m_frmBank[0].frm[6] * 0.1015953);
+		    sprintf(buf, "%2.1f", battery_voltage);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34711;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Throttle Position Voltage */
+	if(checkIdInArray(PARAM_34717))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float throttle_volt = m_frmBank[0].frm[12]*0.0195312;
+		    sprintf(buf, "%2.1f", throttle_volt);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34717;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Coolant Temperature */
+	if(checkIdInArray(PARAM_34721))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float Coolant_temp = m_frmBank[0].frm[9]*0.75 - 48;
+		    sprintf(buf, "%2.1f", Coolant_temp); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34721;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Coolant temperature voltage */
+	if(checkIdInArray(PARAM_34725))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float Coolant_temp = m_frmBank[0].frm[8]*0.0195312;
+		    sprintf(buf, "%2.1f", Coolant_temp);   
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34725;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Manifold Air Temperature */
+	if(checkIdInArray(PARAM_34729))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float manifold_temp = m_frmBank[0].frm[11]*0.75 -48;
+		    sprintf(buf, "%2.1f", manifold_temp);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34729;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Manifold Air Temperature Voltage Sensor */
+	if(checkIdInArray(PARAM_34732))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float manifold_temp = m_frmBank[0].frm[10]*0.0195312;
+		    sprintf(buf, "%2.1f", manifold_temp); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34732;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Manifold Pressure */
+	if(checkIdInArray(PARAM_34735))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float manifold_press = (m_frmBank[0].frm[20] * 256 + m_frmBank[0].frm[19]) * 0.0829175;
+		    sprintf(buf, "%2.1f", manifold_press);    
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34735;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Manifold Pressure Voltage Sensor */
+	if(checkIdInArray(PARAM_34738))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float manifold_press = m_frmBank[0].frm[16]*0.0195312;
+		    sprintf(buf, "%2.1f", manifold_press);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34738;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* vehicle speed */
+	if(checkIdInArray(PARAM_34741))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float vehicle_speed = m_frmBank[0].frm[24];
+		    sprintf(buf, "%d", vehicle_speed); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34741;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Coil charging Timing */
+	if(checkIdInArray(PARAM_34745))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float Charging_time = (m_frmBank[0].frm[79] * 256 + m_frmBank[0].frm[78]) * 0.004;//f11
+		    sprintf(buf, "%2.1f", Charging_time);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34745;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Idle Adaptation */
+	if(checkIdInArray(PARAM_34772))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float Idle_adapt = (signed int)(m_frmBank[0].frm[67] * 256 + m_frmBank[0].frm[66]) * 0.00152592;//f11
+		    sprintf(buf, "%2.1f", Idle_adapt); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34772;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Stepper Motor */
+	if(checkIdInArray(PARAM_34775))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float stepper_motor = m_frmBank[0].frm[68];
+		    sprintf(buf, "%d", stepper_motor); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34775;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Ignition Advance */
+	if(checkIdInArray(PARAM_34778))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float Advance_vdo = 72 - m_frmBank[0].frm[35] * 0.375;
+		    sprintf(buf, "%2.1f", Advance_vdo); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34778;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Upstream O2 Sensor Voltage */
+	if(checkIdInArray(PARAM_34781))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float Upstream = ((m_frmBank[0].frm[32] & 0x3) * 256 + m_frmBank[0].frm[31]) * 0.0048828;
+		    sprintf(buf, "%2.1f", Upstream);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34781;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Upstream O2 Sensor Heating */
+	if(checkIdInArray(PARAM_34785))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float Oxygen_up_heating = m_frmBank[0].frm[60] * 0.392156;
+		    sprintf(buf, "%2.1f", Oxygen_up_heating); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34785;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Idle */
+	if(checkIdInArray(PARAM_34789))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		 float    Idle_nominal = 0;
+		Idle_nominal = (m_frmBank[0].frm[28] * 256 + m_frmBank[0].frm[27]);
+		    sprintf(buf, "%f", Idle_nominal); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34789;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Canister Valve Openning */
+	if(checkIdInArray(PARAM_34792))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float canister_valve = ((m_frmBank[0].frm[72] & 0x7f) * 256 + m_frmBank[0].frm[71]) * 0.003052;
+		    sprintf(buf, "%u", canister_valve);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34792;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Mean O2 Correct */
+	if(checkIdInArray(PARAM_34795))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		float mean_o2;
+		if((m_frmBank[0].frm[55]) >= 0x7F)
+					mean_o2 = -((0xFF - m_frmBank[0].frm[55]) * 256 +    m_frmBank[0].frm[54]) * 0.00152592;
+			  else
+				  mean_o2 = (m_frmBank[0].frm[55] * 256 +    m_frmBank[0].frm[54]) * 0.00152592;
+						
+				sprintf(buf, "%2.1f", mean_o2); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34795;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Mileage */
+	if(checkIdInArray(PARAM_34798))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    
+		mileage = (m_frmBank[0].frm[84] * 16777216 + m_frmBank[0].frm[83] * 65536 + m_frmBank[0].frm[82] * 256 + m_frmBank[0].frm[81]);
+		    sprintf(buf, "%f", mileage);    
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34798;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Engine State */
+	if(checkIdInArray(PARAM_34801))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char engine_state = 6;
+		    for(char i = 0; i < 6;i ++)
+		      if (checkbiter(m_frmBank[0].frm[77],i) == 1)
+		        engine_state = i;
+		    
+		    sprintf(buf, "%d", engine_state);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34801;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Fan Relay */
+	if(checkIdInArray(PARAM_34811))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    fan_relay = m_frmBank[0].frm[75] & 0x03;
+		    sprintf(buf, "%d", fan_relay);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34811;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Fuel pump status */
+	if(checkIdInArray(PARAM_34880))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char fuel_pump = 0;
+		    if(checkbiter(m_frmBank[0].frm[7],7))
+		      fuel_pump = 1;
+		    sprintf(buf, "%d", fuel_pump);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34880;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Fuel Cut */
+	if(checkIdInArray(PARAM_34904))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char cut_off = 0;
+		    if(checkbiter(m_frmBank[0].frm[77],4))
+		      cut_off = 1;
+		    sprintf(buf, "%d", cut_off);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34904;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Richness Regulation Status */
+	if(checkIdInArray(PARAM_34912))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char lambda_control = 0;
+		    if(checkbiter(m_frmBank[0].frm[51],1))
+		      lambda_control = 1;
+		    sprintf(buf, "%d", lambda_control);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34912;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Gear */
+	if(checkIdInArray(PARAM_34928))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char gear = m_frmBank[0].frm[85];
+		    if (gear > 5) gear = 0; 
+		    sprintf(buf, "%d",gear);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34928;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Run Time With VSS Error */
+	if(checkIdInArray(PARAM_34940))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		 
+		sprintf(buf, "%0.0f", makeint(m_frmBank[0].frm[91],m_frmBank[0].frm[90])*1.8204444 + makeint(m_frmBank[0].frm[89],m_frmBank[0].frm[88]) * 0.0000278);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34940;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Vehicle Speed Sensor Error */
+	if(checkIdInArray(PARAM_34943))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    sprintf(buf, "%d", m_frmBank[0].frm[87]);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34943;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Additive Correct Mixture Adaptive */
+	if(checkIdInArray(PARAM_34946))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		float AIT; 
+		 if((m_frmBank[0].frm[57]) > 0x7F)
+					AIT = -((0xFF - m_frmBank[0].frm[57]) * 256 +    m_frmBank[0].frm[56]) * 0.00152592;
+			  else
+				  AIT = (m_frmBank[0].frm[57] * 256 +    m_frmBank[0].frm[56]) * 0.00399792;
+						
+				sprintf(buf, "%2.1f", AIT); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34946;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Multiple Correct Mixture Adaptive */
+	if(checkIdInArray(PARAM_34949))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		  float MIT; 
+		 if((m_frmBank[0].frm[59]) > 0x7F)
+					MIT = -((0xFF - m_frmBank[0].frm[59]) * 256 +    m_frmBank[0].frm[58]) * 0.00152592;
+			  else
+				  MIT = (m_frmBank[0].frm[59] * 256 +    m_frmBank[0].frm[58]) * 0.00152592;
+						
+				sprintf(buf, "%2.1f", MIT); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34949;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Coolong Fan Voltage */
+	if(checkIdInArray(PARAM_34952))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float fan_voltage = m_frmBank[0].frm[86] * 0.0196078;
+		    sprintf(buf, "%0.1f", fan_voltage);    
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34952;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Air Condition Switch */
+	if(checkIdInArray(PARAM_34955))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char AC_SWITCH = 0;
+		    if(checkbiter(m_frmBank[0].frm[30],0))
+		      AC_SWITCH = 1;
+		    sprintf(buf, "%d", AC_SWITCH);    
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34955;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Idle correction A/C on */
+	if(checkIdInArray(PARAM_34964))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char AC_idle_correction = 0;
+		    if(checkbiter(m_frmBank[0].frm[30],1))
+		      AC_idle_correction = 1;
+		    sprintf(buf, "%d", AC_idle_correction);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_34964;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* A/C Compressor Relay */
+	if(checkIdInArray(PARAM_35040))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char AC_comp_relay = 0;
+		    if(checkbiter(m_frmBank[0].frm[30],2))
+		      AC_comp_relay = 1;
+		    sprintf(buf, "%d", AC_comp_relay);    
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35040;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* MAF Correct Altitude */
+	if(checkIdInArray(PARAM_35045))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		sprintf(buf, "%d", m_frmBank[0].frm[23]);   
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35045;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Switch Status */
+	if(checkIdInArray(PARAM_35055))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char ignition_sw = 0;
+		    if(checkbiter(m_frmBank[0].frm[7],0))
+		      ignition_sw = 1;
+		    sprintf(buf, "%d", ignition_sw);   
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35055;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Knock */
+	if(checkIdInArray(PARAM_35071))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char knock_detect = 0;
+		    if(checkbiter(m_frmBank[0].frm[80],0))
+		      knock_detect = 1;
+		    sprintf(buf, "%d", knock_detect); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35071;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Throttle Position Angle */
+	if(checkIdInArray(PARAM_35128))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float throttle_pos = m_frmBank[0].frm[13]*0.46862745;
+		    sprintf(buf, "%0.2f", throttle_pos);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35128;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Mass Air Flow */
+	if(checkIdInArray(PARAM_35145))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float mass_air_flow = (m_frmBank[0].frm[18] * 256 + m_frmBank[0].frm[17]) * 0.03125;
+		    sprintf(buf, "%0.1f", mass_air_flow); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35145;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Engine Speed */
+	if(checkIdInArray(PARAM_35191))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		 sprintf(buf, "%0.0f", makeint(m_frmBank[0].frm[26], m_frmBank[0].frm[25]));   
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35191;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Evaporator temp */
+	if(checkIdInArray(PARAM_35194))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float evaporator_temp = m_frmBank[0].frm[29] * 0.0980392;
+		    sprintf(buf, "%0.2f", evaporator_temp); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35194;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* AC Pressure switch */
+	if(checkIdInArray(PARAM_35207))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char AC_press_sw = 0;
+		    if(checkbiter(m_frmBank[0].frm[30],3))
+		      AC_press_sw = 1;
+		    sprintf(buf, "%d", AC_press_sw); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35207;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Air Condition Thermostat  Switch */
+	if(checkIdInArray(PARAM_35213))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    char AC_evaporator_sw = 0;
+		    if(checkbiter(m_frmBank[0].frm[30],4))
+		      AC_evaporator_sw = 1;
+		    sprintf(buf, "%d", AC_evaporator_sw);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35213;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Injection Time */
+	if(checkIdInArray(PARAM_35218))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float inject_time = (m_frmBank[0].frm[48] * 256 + m_frmBank[0].frm[47]) * 0.004;
+		    sprintf(buf, "%0.1f", inject_time);  
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35218;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Start Angle of Injection */
+	if(checkIdInArray(PARAM_35235))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		 float SOI = 0;    
+		SOI =  180 - (m_frmBank[0].frm[49] * 4.6875);
+		    sprintf(buf, "%0.1f", SOI);    
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35235;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Fuel shot off pattern */
+	if(checkIdInArray(PARAM_35239))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    sprintf(buf, "%d", m_frmBank[0].frm[50]);    
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35239;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Idle speed actuator opening */
+	if(checkIdInArray(PARAM_35244))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float idle_opening = (m_frmBank[0].frm[63] * 256 + m_frmBank[0].frm[62]) * 0.001525902189;
+		    sprintf(buf, "%0.2f", idle_opening);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35244;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Idle speed regulation */
+	if(checkIdInArray(PARAM_35249))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		   float ISR;
+		if((m_frmBank[0].frm[65]) > 0x7F)
+					ISR = -((0xFF - m_frmBank[0].frm[65]) * 256 +    m_frmBank[0].frm[64]) * 0.00152592;
+			  else
+				  ISR = (m_frmBank[0].frm[65] * 256 +    m_frmBank[0].frm[64]) * 0.00152592;
+						
+				sprintf(buf, "%2.1f", ISR); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35249;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Canister loading */
+	if(checkIdInArray(PARAM_35297))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    float canister_load = (m_frmBank[0].frm[74] * 256 + m_frmBank[0].frm[73]) * 1.220703125047684443427176317998e-4;
+		    sprintf(buf, "%0.2f", canister_load);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35297;
+		check_7f(buf); index_buffer_i++;
+	}
+
+	/* Target of stepper motor position */
+	if(checkIdInArray(PARAM_35301))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		    sprintf(buf, "%d", m_frmBank[0].frm[76]); 
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_35301;
+		check_7f(buf); index_buffer_i++;
+	}
+
+
+}
+
+/* frames 1a,8d */
+void task_identification_1a8d(char * input,int num) {
+	uint8_t index_buffer_i = 0;
+	uint8_t * buf = 0;
+	uint8_t enable_or_disable = 0;
+	uint8_t exceptional_value = 0;
+
+	/* Software Version */
+	if(checkIdInArray(PARAM_36639))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		array_copy(buf,0,11,m_frmBank[0].frm,5,16);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_36639;
+		check_7f(buf); index_buffer_i++;
+	}
+
+
+}
+
+/* frames 1a,8e */
+void task_identification_1a8e(char * input,int num) {
+	uint8_t index_buffer_i = 0;
+	uint8_t * buf = 0;
+	uint8_t enable_or_disable = 0;
+	uint8_t exceptional_value = 0;
+
+	/* Calibration Number */
+	if(checkIdInArray(PARAM_36653))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		array_copy(buf,0,11,m_frmBank[0].frm,5,16);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_36653;
+		check_7f(buf); index_buffer_i++;
+	}
+
+
+}
+
+/* frames 18,0,0,0 */
+void task_summary_18000(char * input,int num) {
+	uint8_t index_buffer_i = 0;
+	uint8_t * buf = 0;
+	uint8_t enable_or_disable = 0;
+	uint8_t exceptional_value = 0;
+
+	/* Number of Faults */
+	if(checkIdInArray(PARAM_320838))
+	{
+		enable_or_disable = 0;
+		exceptional_value = 0;
+		buf = scheduler_output_buffer[index_buffer_i].buf[index_buffer_j];
+	
+		sprintf(buf, "%d", m_frmBank[0].frm[4]);
+	
+		scheduler_output_buffer[index_buffer_i].enable_or_disable = enable_or_disable;
+		scheduler_output_buffer[index_buffer_i].exceptional_value = exceptional_value;
+		scheduler_output_buffer[index_buffer_i].item_num = PARAM_320838;
+		check_7f(buf); index_buffer_i++;
+	}
+
+
+}
+
+/* frames 18,00,00,00 */
+void task_faults_18000(char * input,int num) {
+}
+
+/* frames 30,00,07,ff */
+void task_actuator_300007ff(char * input,int num) {
+}
+
+/* frames 30,00,04 */
+void task_actuator_300004(char * input,int num) {
+}
+/* WARNING: Auto generated file. Do not modify. */

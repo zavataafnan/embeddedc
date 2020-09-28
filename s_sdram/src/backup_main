@@ -1,0 +1,827 @@
+/**********************************************************************
+* $Id: Mci_CidCard.c 28 2014-01-27 14:45:13Z danielru $		Mci_CidCard.c	2011-06-02
+*//**
+* @file		Mci_CidCard.c
+* @brief	This example describes how to test MCI card
+* @version	1.0
+* @date		02. June. 2011
+* @author	NXP MCU SW Application Team
+*
+* Copyright(C) 2011, NXP Semiconductor
+* All rights reserved.
+*
+***********************************************************************
+* Software that is described herein is for illustrative purposes only
+* which provides customers with programming information regarding the
+* products. This software is supplied "AS IS" without any warranties.
+* NXP Semiconductors assumes no responsibility or liability for the
+* use of the software, conveys no license or title under any patent,
+* copyright, or mask work right to the product. NXP Semiconductors
+* reserves the right to make changes in the software without
+* notification. NXP Semiconductors also make no representation or
+* warranty that such application will be suitable for the specified
+* use without further testing or modification.
+* Permission to use, copy, modify, and distribute this software and its
+* documentation is hereby granted, under NXP Semiconductors'
+* relevant copyright in the software, without fee, provided that it
+* is used in conjunction with NXP Semiconductors microcontrollers.  This
+* copyright, permission, and disclaimer notice must appear in all copies of
+* this code.
+**********************************************************************/
+
+#include "lpc_types.h"
+#include "lpc177x_8x_pinsel.h"
+#include "lpc177x_8x_timer.h"
+#include "lpc177x_8x_uart.h"
+#include "lpc177x_8x_ssp.h"
+#include "lpc177x_8x_gpio.h"
+#include "system_lpc177x_8x.h"
+#include "LPC177x_8x.h"
+#include "lpc_types.h"
+#include "lpc177x_8x_mci.h"
+#include "lpc177x_8x_gpdma.h"
+#include "debug_frmwrk.h"
+#include "diskio.h"
+#include "ff.h"
+#include "board.h"
+#include "lpc177x_8x_eeprom.h"
+#include "SecurityLevels.h"
+#include "Protocol_CAN.h"
+#include "CarCommProtocol.h"
+#include "ECU_define.h"
+#include "spi_helper.h"
+#include "sdram.h"
+#include "nand.h"
+#include "RelayController.h"
+#include "jsmn.h"
+#include "Uart_Helper.h"
+#include "ECU_helper.h"
+
+#define PIN_1_RD_RELAY_PORT  1
+#define PIN_1_RD_RELAY_PIN   31
+
+#define PIN_1_TX_RELAY_PORT  1
+#define PIN_1_TX_RELAY_PIN   30
+
+
+extern unsigned char xmegatx_frame[256];
+extern unsigned char xmegarx_frame[256];
+extern SCHEDULER_INPUT_MANAGEMENT m_Scheduler_Buffer;
+extern int m_SecurityStatus;
+extern m_Security_ID m_SecurityID;
+extern uint8_t m_iFlagRecieveFrame;
+extern m_FrmBank m_frmBank[NUMBER_OF_FRAME_BUFFER];
+
+/* Example group ----------------------------------------------------------- */
+/** @defgroup MCI_CidCard	MCI Card Identifier
+* @ingroup MCI_Examples
+* @{
+*/
+
+#define DMA_SIZE       (1000UL)
+#define DMA_SRC			LPC_PERI_RAM_BASE		/* This is the area original data is stored
+or data to be written to the SD/MMC card. */
+#define DMA_DST			(DMA_SRC+DMA_SIZE)		/* This is the area, after writing to the SD/MMC,
+data read from the SD/MMC card. */
+
+
+#define PAGE_OFFSET			0x10
+#define PAGE_ADDR			0x01
+
+
+//extern ProtocolProfiler * m_CurrentProfile;
+//extern SCHEDULER_INPUT_MANAGEMENT m_Scheduler_Buffer;
+/* UART buffer */
+
+
+
+/* treat WriteBlock as a constant address */
+volatile uint8_t *WriteBlock = (uint8_t *)(DMA_SRC);
+
+/* treat ReadBlock as a constant address */
+volatile uint8_t *ReadBlock  = (uint8_t *)(DMA_DST);
+extern SCHEDULER * m_SchedulerPointer;
+
+
+#if MCI_DMA_ENABLED
+/******************************************************************************
+**  DMA Handler
+******************************************************************************/
+void DMA_IRQHandler (void)
+{
+  MCI_DMA_IRQHandler();
+}
+#endif
+
+
+
+
+
+void SysTick_Handler(void)
+{
+  disk_timerproc();
+  return;
+}
+
+
+
+
+
+void SystemConfiguration(void)
+{
+  //////////////////////////////////////////////////////////////////
+#ifndef RELEASE_CODE  
+  console_init();
+  //console_sendString((uint8_t*)"Start the Serial\r\n");
+  
+  //for debug framework :::
+  
+  debug_frmwrk_init();
+#endif
+  
+  
+  Server_Port_Config0();
+  Server_Port_Config1(9600);
+  
+  
+  
+  //test bluetooth modules!!!
+  //unsigned char frame_buf[] = {"test is the unique!!!"};
+  UART_TxCmd(UART_1, ENABLE);
+  //Write_ModeBusFrame(UART_1,frame_buf, sizeof(frame_buf));
+  
+  //configure RTC:
+  /* RTC Block section ------------------------------------------------------ */
+  // Init RTC module
+  RTC_Init(LPC_RTC);
+  
+  /* Disable RTC interrupt */
+  NVIC_DisableIRQ(RTC_IRQn);
+  /* preemption = 1, sub-priority = 1 */
+  NVIC_SetPriority(RTC_IRQn, ((0x01<<3)|0x01));
+  
+  /* Enable rtc (starts increase the tick counter and second counter register) */
+  //RTC_ResetClockTickCounter(LPC_RTC);
+  //RTC_Cmd(LPC_RTC, ENABLE);
+  //RTC_CalibCounterCmd(LPC_RTC, DISABLE);
+  
+  //enable EEPROM init
+  
+  
+  nand_init();
+  
+  EEPROM_Init();
+  
+}
+
+
+uint8_t menu2a[] =
+"********************************************************************************\n\r"
+" Hello NXP Semiconductors \n\r"
+" SSP_1 example \n\r"
+"\t - MCU: LPC1778 \n\r"
+"\t - Core: ARM CORTEX-M3 \n\r"
+"\t - UART Communication: 115200 bps \n\r"
+" This example uses SSP tion in MASTER mode \n\r"
+"********************************************************************************\n\r";
+
+uint8_t menu2b[] = "Demo terminated! \n\r";
+
+
+
+/*********************************************************************//**
+* @brief		Print Welcome menu
+* @param[in]	none
+* @return 		None
+**********************************************************************/
+void print_menu(void)
+{
+  _DBG(menu2a);
+}
+
+
+void UARTPutFrame(unsigned char *frame)
+{
+  
+  uint8_t *s = (uint8_t *) frame;
+  unsigned char counter;
+  //UARTPutChar(DEBUG_UART_PORT, '\n');
+  //UARTPutChar(DEBUG_UART_PORT, '\r');
+  
+  for(counter=0;counter<frame[1];counter++)
+  {
+    UARTPutChar(DEBUG_UART_PORT, *s);
+    *s++;
+  }
+}
+
+
+extern unsigned char xmegatx_frame[256];
+extern unsigned char xmegarx_frame[256];
+extern unsigned char m_State_Recieieved;
+extern SCHEDULER_INPUT_MANAGEMENT m_Scheduler_Buffer;
+
+void c_entry2()
+{
+  
+ 
+  //set SS as GPIO for enabl/disabling slave
+  //PINSEL_ConfigPin(0, 25, 0);
+  //output
+  //GPIO_SetDir(0, (1<<25), 1);
+
+  
+  
+  
+  while(1)
+  {
+    char bb;
+    char status;
+     //bb = get_boot_status();
+     //GPIO_ClearValue(0, (1<<25));
+     xmegatx_frame[0] = 6;
+     xmegatx_frame[1] = 6;
+     xmegatx_frame[2] = 4;
+     xmegatx_frame[3] = 3;
+     xmegatx_frame[4] = 2;
+     
+     UARTPutFrame(xmegatx_frame);
+
+     //delay_ms(5);
+  //  bb = get_boot_status();
+   //  GPIO_SetValue(0, (1<<25));
+//          delay_ms(200);
+
+
+ //   status = program_application_using_bootloader(boot_code_lcd,sizeof(boot_code_lcd));
+ 
+  
+    if(m_State_Recieieved == 1)
+    {
+      
+      if(m_Scheduler_Buffer.input_buf[0] == 0x10)
+      {
+				char ret_frame[] = { 0x11, 1};
+          spi1_send_frame(XOSCOPE,m_Scheduler_Buffer.input_buf[1],m_Scheduler_Buffer.input_buf[2]);
+          spi1_recieve_frame();
+          
+          //UARTPutFrame(xmegarx_frame);
+          
+          WriteTheFrame(UART_1, CMD1_TASK_DATA, CMD2_TASK_DATA_SCOPE_DATA , xmegarx_frame+3 , xmegarx_frame[1]-4); 
+ 
+      }
+      
+      if(m_Scheduler_Buffer.input_buf[0] == 0x11)
+      {
+        m_State_Recieieved = 0;
+      }
+
+      if(m_Scheduler_Buffer.input_buf[0] == 0x12)
+      {
+				char ret_frame[] = { 0x11, 1};
+          spi1_send_frame(XVBAT,m_Scheduler_Buffer.input_buf[1],0);
+          spi1_recieve_frame();
+          
+          //UARTPutFrame(xmegarx_frame);
+          
+          WriteTheFrame(UART_1, CMD1_TASK_DATA, CMD2_TASK_DATA_SCOPE_DATA , xmegarx_frame+3 , xmegarx_frame[1]-4); 
+          m_State_Recieieved = 0;
+      }
+      
+      
+
+      if(m_Scheduler_Buffer.input_buf[0] == 0x13)
+      {
+				char ret_frame[] = { 0x11, 1};
+          spi1_send_frame(XRPM,0,0);
+          spi1_recieve_frame();
+          
+          //UARTPutFrame(xmegarx_frame);
+          
+          WriteTheFrame(UART_1, CMD1_TASK_DATA, CMD2_TASK_DATA_SCOPE_DATA , xmegarx_frame+3 , xmegarx_frame[1]-4); 
+          m_State_Recieieved = 0;
+      }
+
+
+      
+      
+      
+      
+        
+      //send to the bluetooth!!!
+    }
+
+    
+//  spi1_send_frame(XGET_BOOT_STATUS,0,0);
+//  UARTPutFrame(xmegatx_frame);
+//  spi1_recieve_frame();
+//  UARTPutFrame(xmegarx_frame);
+
+    //unsigned char bb = get_boot_status();
+    //char status = program_application_using_bootloader(boot_code_lcd,sizeof(boot_code_lcd));
+    
+    // unsigned char mm = get_boot_status();
+    // mm = get_boot_status();
+
+    //if system is in bootmode
+    //if(get_boot_status()==1)
+   // {
+
+     //             spi1_send_frame(XBOOT_SEND_ADDRESS,0,0);
+         //         spi1_recieve_frame();
+       //           
+      //            write_flash();
+           //       write_flash(boot_code,sizeof(boot_code));
+
+
+                              
+                              
+//            spi1_send_frame(XBOOT_ERASE_64K_FLASH,0,0);
+//            UARTPutFrame(xmegatx_frame);
+
+//            spi1_recieve_frame();
+//            UARTPutFrame(xmegarx_frame);
+
+
+//      write_flash(boot_Code);
+      
+    
+//            spi1_send_frame(XBOOT_END_MODE,0,0);
+//            spi1_recieve_frame();
+//            UARTPutFrame(xmegarx_frame);
+
+       
+  //  }
+    
+    
+ //   else 
+  //  {
+   ////enter boot mode
+   //   spi1_send_frame(XBOOT_ENTER,0,0);
+    //  if(get_boot_status()==1)
+     // {
+      //      spi1_send_frame(XBOOT_ERASE_64K_FLASH,0,0);
+       //     spi1_recieve_frame();
+
+//            write_flash(boot_code, sizeof(boot_code));
+ //   }
+    
+  //  }
+    
+    
+   
+    
+    
+    //spi1_send_frame(XOSCOPE,32,1);
+   // UARTPutFrame(xmegatx_frame);
+    //spi1_recieve_frame();
+    //UARTPutFrame(xmegarx_frame);
+    
+    
+    //spi1_send_frame(XOSCOPE,100,10);
+    //UARTPutFrame(xmegatx_frame);
+    //if(spi1_recieve_frame())
+    //  UARTPutFrame(xmegarx_frame);
+    
+    //    spi1_send_frame(XGET_BOOT_STATUS,32,1);
+    //  UARTPutFrame(xmegatx_frame);
+    //  spi1_recieve_frame(xmegarx_frame);
+    //  UARTPutFrame(xmegarx_frame);
+    
+    
+    //SSP_ReceiveData(_USING_SSP);
+    
+    //  spi1_send_frame(xmegatx_frame);
+    //delay_ms(1);
+    //        spi1_recieve_frame(xmegarx_frame);
+    //        UARTPutFrame(xmegarx_frame);
+    //delay_ms(1);
+    
+    //        spi1_send_frame(xmegatx_frame);
+    //delay_ms(1);
+    //        spi1_recieve_frame(xmegarx_frame);
+    
+    //        spi1_send_frame(XGET_BOOT_STATUS,0,0);
+    //        spi1_recieve_frame(xmegarx_frame);
+    //        UARTPutFrame(xmegarx_frame);
+    //
+    //        spi1_send_frame(XBOOT_ENTER,0,0);
+    //        spi1_recieve_frame(xmegarx_frame);
+    //        UARTPutFrame(xmegarx_frame);
+    //
+    //        spi1_send_frame(XGET_BOOT_STATUS,0,0);
+    //        spi1_recieve_frame(xmegarx_frame);
+    //        UARTPutFrame(xmegarx_frame);
+    //         
+    //        spi1_send_frame(XBOOT_ERASE_64K_FLASH,0,0);
+    //        spi1_recieve_frame(xmegarx_frame);
+    //        UARTPutFrame(xmegarx_frame);
+    //
+    //        spi1_send_frame(XBOOT_END_MODE,0,0);
+    //        spi1_recieve_frame(xmegarx_frame);
+    //        UARTPutFrame(xmegarx_frame);
+    
+    
+    //      for(dc=0;dc<100;dc++);
+    //       delay_ms(1);
+    
+    //        UARTPutChar(DEBUG_UART_PORT, '1');
+    
+    
+  }
+  
+  
+}
+
+typedef void (* func)(void);
+#define USER_PROGRAM_START 0x10000000
+
+
+__asm void boot_jump( uint32_t address ){
+   LDR SP, [R0]		;Load new stack pointer address
+   LDR PC, [R0, #4]	;Load new program counter address
+}
+
+
+unsigned char LoadAProgramFromSDCARD(void)
+{
+  DIR dir;
+  BYTE res;
+  FIL file;
+  UINT numRead = 0;
+  UINT numWritten = 0;
+  TIM_TIMERCFG_Type timerCfg;
+  FATFS lFatfs[1];
+  FILINFO Finfo;
+	uint8_t * byte_wr_ptr;
+  uint32_t * u32_wr_ptr;
+	func user_code_entry;
+  
+  unsigned char tt;
+  
+  uint8_t buff[512];
+  // initialize timer
+  TIM_ConfigStructInit(TIM_TIMER_MODE, &timerCfg);
+  TIM_Init(LPC_TIM0, TIM_TIMER_MODE, &timerCfg);
+  
+  console_init();
+  
+  SysTick_Config(SystemCoreClock/10);
+  
+  //PINSEL_ConfigPin(1,5,0); //CAS
+  //GPIO_SetDir(1,1<<5,1);
+  //GPIO_SetValue(1,1<<5);
+  
+  
+  console_sendString((uint8_t*)"FatFS Demo\r\n");
+  
+  TurnOnSDCARD_Module(ON_MODE);
+  
+  res = f_mount(0, &lFatfs[0]);
+  if (res != FR_OK) {
+    sprintf(buff, "Failed to mount 0: %d \r\n", res);
+    console_sendString((uint8_t*)buff);
+    return 0;
+  }
+  
+  console_sendString((uint8_t*)"Opening '/'\r\n");
+  res = f_opendir(&dir, "/");
+  if (res) {
+    sprintf(buff, "Failed to open /: %d \r\n", res);
+    console_sendString((uint8_t*)buff);
+    return 0;
+  }
+  
+  
+  console_sendString((uint8_t*)"Listing content of '/'\r\n");
+  for(;;) {
+    res = f_readdir(&dir, &Finfo);
+    if ((res != FR_OK) || !Finfo.fname[0]) break;
+    
+    console_sendString((uint8_t*)&(Finfo.fname[0]));
+    console_sendString((uint8_t*)"\r\n");
+  }
+  
+  console_sendString((uint8_t*)"\r\nOpening a file\r\n");
+  res = f_open (&file, "type_a.bin", FA_READ);
+  if (res) {
+    sprintf(buff, "Failed to open type_a.bin: %d \r\n", res);
+    console_sendString((uint8_t*)buff);
+    return 0;
+  }
+  
+  /***/
+  
+  //volatile uint8_t *byte_wr_ptr;
+  byte_wr_ptr = (uint8_t *)(0x10000000);
+  //void * byte_wr_ptr = (void *)SDRAM_BASE;
+  //uint8_t * byte_wr_ptr = (uint8_t *)malloc(file.fsize);
+  u32_wr_ptr = (uint32_t *)(0x10000000);
+
+  console_sendString((uint8_t*)"Reading content of the file\r\n");
+  res =  f_read (&file, byte_wr_ptr, file.fsize  , &numRead);			/* Read data from a file */
+  if (res || numRead <= 0) {
+    sprintf(buff, "Failed to read type_a.bin: %d \r\n", res);
+    console_sendString((uint8_t*)buff);
+    return 0;
+  }
+  
+  //buff[numRead] = '\0';
+  //console_sendString((uint8_t*)buff);
+  
+  console_sendString((uint8_t*)"\r\nClosing file\r\n");
+  res =  f_close (&file);
+  if (res) {
+    sprintf(buff, "Failed to close ip.txt: %d \r\n", res);
+    console_sendString((uint8_t*)buff);
+    return 0;
+  }
+
+  TurnOnSDCARD_Module(OFF_MODE);
+  
+  
+  
+  
+  
+  /* Set stack pointer with the first world of the user progrtam
+  sp = *((Int32U *) USER_PROGRAM_START);*/
+  //asm("mov sp,#0x10000000");
+  //asm("ldr sp,[sp,#0]");
+		__disable_irq();
+		NVIC_DeInit();
+    NVIC_SCBDeInit();
+    NVIC_SetVTOR(USER_PROGRAM_START);
+  boot_jump(USER_PROGRAM_START);
+  //asm("LDR PC,[R0]");//Load new program counter address
+  
+  //user_code_entry = (func)((uint32_t*)(0x1000000));//causes invstate at 0x6004
+  //MEMMAP = 2;
+  //user_code_entry = (func)((uint32_t*)(0x10000000));
+  //user_code_entry();
+  //
+  
+  while(1);
+  
+  //user_code_entry = * ((func *)USER_PROGRAM_START+1);
+  //user_code_entry();
+  
+  
+  //tt = program_application_using_bootloader((unsigned char *)byte_wr_ptr,numRead);
+  
+  
+  //free(byte_wr_ptr);
+  return(tt);
+
+  
+/*  
+  console_sendString((uint8_t*)"\r\nOpening a file for writing\r\n");
+  res = f_open (&file, "new.txt", (FA_CREATE_ALWAYS|FA_READ|FA_WRITE));
+  if (res) {
+    sprintf(buff, "Failed to open new.txt: %d \r\n", res);
+    console_sendString((uint8_t*)buff);
+    return 0;
+  }
+  
+  console_sendString((uint8_t*)"Writing  to the file\r\n");
+  res = f_write (&file, "Data written to file\r\n", 22, &numWritten);
+  if (res) {
+    sprintf(buff, "Failed to write to new.txt: %d \r\n", res);
+    console_sendString((uint8_t*)buff);
+    return 0;
+
+  }
+  
+  console_sendString((uint8_t*)"Closing file\r\n");
+  res =  f_close (&file);
+  if (res) {
+    sprintf(buff, "Failed to close new.txt: %d \r\n", res);
+    console_sendString((uint8_t*)buff);
+    return 0;
+  }
+  */
+  
+  
+}
+
+extern AF_SectionDef AFTable;
+CAN_FILTERING_ARRAY filter_array_E_200633 = { {0x650,0x651},2};
+Can_Device can_dev_E_200632 = {0x750, 0x00, 0xff, 0, 250,14, 6, &filter_array_E_200633};
+
+DEVICE_TYPES device_type_E_200631 = {&can_dev_E_200632, NULL};
+
+
+
+
+
+void TestCANWithFrame(void)
+{
+  uint8_t buf[] = {0x10,0x90};
+  ConnectToCANDevice(&device_type_E_200631);
+  
+  while(1)
+	{
+		SendAndRecieveCANFrame(&device_type_E_200631, buf, 2, 0);
+		delay_ms(30);
+	}
+  
+  
+  
+  //uint8_t bufA[] = {0x3B ,0x81 ,0x30 ,0x31 ,0x31 ,0x31 ,0x31 ,0x31 ,0x31 ,0x31 
+  //  ,0x30 ,0x30 ,0x30 ,0x30 ,0x31 ,0x31 ,0x30 ,0x30 ,0x32 ,0x00 ,0x00};
+  
+  //SendAndRecieveCANFrame(&m_canDev, bufA, 0x15, 0);
+  
+  //SendAndRecieveCANFrame(&m_canDev, buf, 2, 0);
+  
+  
+  buf[0] = 0x21; buf[1] = 0x80;
+  //SendAndRecieveCANFrame(&m_canDev, buf, 2 , 1);
+  
+}
+
+
+
+int main (void)
+{
+  
+  char cc=0;
+  int dc=0;
+	int t;
+  char tt;
+  char rr;
+	int i =0;
+	int r_v;
+	uint8_t * test_point;
+	char t12=0;
+  
+ 
+  //tt = sdram_init();
+  
+  //r_v = sdram_test();
+  
+  //Activate_LEDPin(LED_BUZZER,ON_MODE);
+  //delay_ms(500);
+
+  
+  PutTheBluetoothToCommandMode(OFF_MODE);
+  TrunOnBluetooth_Module(ON_MODE);
+  
+  
+  //test_point = (uint8_t *)malloc(0x20000);
+  //for (t = 0; t < 0x20000 ; t++)
+  //{
+  //  *test_point++ = t++;
+  //}
+  //free(test_point);
+   
+  SystemConfiguration(); 
+	
+
+  //invert on/off mode of MCI power pin(we are using a P-mosfet)
+  LPC_SC->SCS  = ((LPC_SC->SCS) & 0xFFFFFFF7);
+
+  
+  //nand_init();
+  //t12 = nand_test();
+  
+  strcpy(m_SecurityID.m_SerialNumber, "test123");
+  
+  WriteTheSecurityPatchToEEPROM(m_SecurityID);
+  
+  strcpy(m_SecurityID.m_SerialNumber, "MAS");
+  
+  ReadTheSecurityPatchToEEPROM(&m_SecurityID);
+  
+  ResetTheBuffer();
+  
+  SPI_initialize_internal();
+	
+	__enable_irq();
+  
+  
+  /* Initialize debug via UART0
+  * – 115200bps
+  * – 8 data bit
+  * – No parity
+  * – 1 stop bit
+  * – No flow control
+  */
+  debug_frmwrk_init();
+	
+   //uint8_t test[] = {"start the program!!! \r\n"};
+   //console_sendString("start the program!!! \r\n");
+	
+		//open the relay :
+		
+		//set the status to connect :
+	#ifdef __RAM_MODE__
+	m_Scheduler_Buffer.CMD = CMD2_TASK_DATA_CONNECT;
+	#endif
+		
+
+	/*
+	TestCANWithFrame();
+	
+	while(1)
+	{
+		
+	}
+   
+  LoadAProgramFromSDCARD();
+  */
+  //now read from the file and write to the memory and start the program :
+  
+  
+  //while(1)
+  //{
+	//	uint8_t test[] = {"code type B : with ecu number on \r\n"};
+  //  console_sendString(test);
+  //}
+  
+ //use following function before SDI card usage then turn off with second function when finished
+ // TurnOnSDCARD_Module(ON_MODE);
+ //  MCI_PowerOff();
+ 
+  
+//change threshold example
+//tt = set_comparator_threshold(15);  
+  
+//bootloader programming example
+//tt = program_in_bootmode_from_file();
+
+  while(1)
+  {
+		
+		    if(m_State_Recieieved == 1)
+    {
+      
+      if(m_Scheduler_Buffer.input_buf[0] == 0x10)
+      {
+				char ret_frame[] = { 0x11, 1};
+          spi1_send_frame(XOSCOPE,m_Scheduler_Buffer.input_buf[1],m_Scheduler_Buffer.input_buf[2]);
+          spi1_recieve_frame();
+          
+          //UARTPutFrame(xmegarx_frame);
+          
+          WriteTheFrame(UART_1, CMD1_TASK_DATA, CMD2_TASK_DATA_SCOPE_DATA , xmegarx_frame+3 , xmegarx_frame[1]-4); 
+ 
+      }
+      
+      if(m_Scheduler_Buffer.input_buf[0] == 0x11)
+      {
+        m_State_Recieieved = 0;
+      }
+
+      if(m_Scheduler_Buffer.input_buf[0] == 0x12)
+      {
+				char ret_frame[] = { 0x11, 1};
+          spi1_send_frame(XVBAT,m_Scheduler_Buffer.input_buf[1],0);
+          spi1_recieve_frame();
+          
+          //UARTPutFrame(xmegarx_frame);
+          
+          WriteTheFrame(UART_1, CMD1_TASK_DATA, CMD2_TASK_DATA_SCOPE_DATA , xmegarx_frame+3 , xmegarx_frame[1]-4); 
+          m_State_Recieieved = 0;
+      }
+      
+      
+
+      if(m_Scheduler_Buffer.input_buf[0] == 0x13)
+      {
+				char ret_frame[] = { 0x11, 1};
+          spi1_send_frame(XRPM,0,0);
+          spi1_recieve_frame();
+          
+          //UARTPutFrame(xmegarx_frame);
+          
+          WriteTheFrame(UART_1, CMD1_TASK_DATA, CMD2_TASK_DATA_SCOPE_DATA , xmegarx_frame+3 , xmegarx_frame[1]-4); 
+          m_State_Recieieved = 0;
+      }
+
+
+      
+      
+      
+      
+        
+      //send to the bluetooth!!!
+    }
+		
+    Runner();
+  }
+
+  
+  //c_entry2();
+  return 0;
+}
+
+
+
+/******************************************************************************
+**                            End Of File
+******************************************************************************/
+
+/**
+* @}
+*/
+

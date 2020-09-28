@@ -1,0 +1,19 @@
+stages:
+  - test
+  - build
+  
+job_test:
+  script:
+   - C:\\Gitlab-runner\\build_e_c.bat test 0001
+
+  stage: test
+  only:
+    - master
+
+job_build:
+  script:
+   - C:\\Gitlab-runner\\build_e_c.bat prod 0001
+
+  stage: build
+  only:
+    - release
